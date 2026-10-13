@@ -13,12 +13,13 @@ import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { publicFontUrl, renderPublicStylesheet } from "@aphrody/m3-fonts";
 import { prunePublicFontCopies } from "./public-assets-package";
-import { canonicalBunInputs } from "@aphrody/product/build-inputs";
+import { canonicalBunInputs, productBuildContext } from "@aphrody/product/build-inputs";
 const WEBOS_WASM_NAME = "aphrody_webos_wasm_bg.wasm";
 const escape = (value: string) =>
   value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
 
 if (import.meta.main) {
+  const context = productBuildContext();
   const config = await loadM3Config(import.meta.dir);
   if (!config.tauri) throw new Error("app-ui: m3.config.ts must set tauri.uiDist");
   const dev = process.argv.includes("--dev");
@@ -35,7 +36,7 @@ if (import.meta.main) {
     throw new Error("--public-assets requires an isolated --out artifact directory");
   const assets = values["public-assets"]
     ? ((await Bun.file(
-        join(import.meta.dir, "../../../tools/config/public-assets.json"),
+        context.publicAssets,
       ).json()) as { schemaVersion: number; baseUrl: string; localFontFallbacks: string[] })
     : undefined;
   if (
@@ -44,9 +45,7 @@ if (import.meta.main) {
       assets.baseUrl !== "https://assets.aphrody.app")
   )
     throw new Error("Unqualified public assets configuration");
-  const bunCheckout = resolve(
-    Bun.env.APHRODY_BUN_CHECKOUT ?? join(import.meta.dir, "../../../../bun"),
-  );
+  const bunCheckout = context.bunCheckout;
   const sourceRevision = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: bunCheckout });
   if (sourceRevision.exitCode !== 0)
     throw new Error("Canonical Bun checkout must have a source revision");
