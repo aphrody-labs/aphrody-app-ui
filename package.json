@@ -105,6 +105,7 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@aphrody/product": "workspace:*",
     "@aphrody/m3": "workspace:*",
     "@aphrody/m3-config": "workspace:*",
     "@types/d3": "catalog:",

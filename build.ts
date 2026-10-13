@@ -13,7 +13,7 @@ import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { publicFontUrl, renderPublicStylesheet } from "@aphrody/m3-fonts";
 import { prunePublicFontCopies } from "./public-assets-package";
-import { canonicalBunInputs } from "../../../scripts/release/publish-app-ui";
+import { canonicalBunInputs } from "@aphrody/product/build-inputs";
 const WEBOS_WASM_NAME = "aphrody_webos_wasm_bg.wasm";
 const escape = (value: string) =>
   value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
