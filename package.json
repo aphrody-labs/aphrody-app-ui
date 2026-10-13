@@ -18,6 +18,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./backend": "./backend.ts",
     "./styles.css": "./src/styles.css",
     "./showcase": "./showcase/src/App.tsx"
   },
