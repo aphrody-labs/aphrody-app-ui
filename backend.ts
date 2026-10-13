@@ -12,7 +12,7 @@ export function isLoopbackHost(value: string): boolean {
 
 /** The same native app-server transport serves the preview and M3 development UI. */
 export function appServerProxy(
-  target = process.env.APHRODY_APP_SERVER_URL ?? "http://127.0.0.1:8765",
+  target = process.env.APHRODY_APP_SERVER_URL ?? "http://127.0.0.1:8787",
 ): Record<string, string> {
   const url = new URL(target);
   if (
