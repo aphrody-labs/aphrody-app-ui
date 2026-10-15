@@ -13,11 +13,13 @@ export const undeclaredDependencies: BunPlugin = {
     build.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, (args) => ({
       path: Bun.resolveSync(args.path, here).replaceAll("\\", "/"),
     }));
-    build.onResolve({ filter: /^@aphrody\/plugin-([a-z-]+)$/ }, (args) => {
+    build.onResolve({ filter: /^@aphrody\/plugin-([a-z-]+)$/ }, async (args) => {
       const pluginName = args.path.replace("@aphrody/plugin-", "");
+      const workspaceRoot = (await import("@aphrody/product/build-inputs")).productBuildContext()
+        .workspaceRoot;
       const guestJs = join(
-        here,
-        `../../../crates/tauri/aphrody-tauri-plugin-${pluginName}/guest-js/index.ts`,
+        workspaceRoot,
+        `crates/tauri/aphrody-tauri-plugin-${pluginName}/guest-js/index.ts`,
       );
       if (existsSync(guestJs)) {
         return { path: guestJs.replaceAll("\\", "/") };
@@ -53,5 +55,4 @@ export default function invariant(condition, message) {
     }));
   },
 };
-
 export default undeclaredDependencies;

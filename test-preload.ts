@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mock } from "bun:test";
 // oxlint-disable-next-line import/no-unassigned-import -- registers the DOM before UI imports
-import "../../../scripts/test-dom";
+import "@aphrody/m3-config/test/dom";
 
 // Bun's test loader does not run the Bun.build resolver for CommonJS peers.
 // Alias the nested workspace's real React to the host copy, as the app bundler does.
