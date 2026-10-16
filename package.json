@@ -39,7 +39,7 @@
     "showcase:package": "cd showcase && bun ../../../../packages/engine/yolo/src/index.ts m3 bun package",
     "showcase:deploy": "cd showcase && bun ../../../../packages/engine/yolo/src/index.ts m3 bun deploy all",
     "showcase:smoke": "cd showcase && bun ../../../../packages/engine/yolo/src/index.ts m3 bun smoke",
-    "showcase:typecheck": "cd showcase && tsc -p tsconfig.json --noEmit",
+    "showcase:typecheck": "cd showcase && bun check -p tsconfig.json --noEmit",
     "showcase:test": "cd showcase && bun test ./test && bun run test:dom",
     "showcase:tauri": "cd showcase && bun scripts/tauri.ts",
     "showcase:test:dom": "cd showcase && bun test --preload @aphrody/m3-config/test/dom ./test-dom"
@@ -114,8 +114,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
-    "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "tailwindcss": "catalog:"
   },
   "engines": {
     "bun": ">=1.4.4"
