@@ -4,7 +4,7 @@
 // every `aphrody` child as APHRODY_MODELS_DIR by crates/ui/app).
 import { AphrodyAvatar } from "@aphrody/identity";
 import { Button, Icon, Kbd } from "@aphrody/m3-primitives";
-import { open } from "@aphrody/plugin-dialog";
+import { open } from "@aphrody/tauri/plugins/dialog";
 import { useEffect, useState } from "react";
 import { fetchModelStoreRoot } from "./tauri-bridge";
 
@@ -63,7 +63,11 @@ function ModelsFolder({
 
   const choose = async () => {
     try {
-      const picked = await open({ directory: true, multiple: false, title: "Models folder" });
+      const picked = await open({
+        directory: true,
+        multiple: false,
+        title: "Models folder",
+      });
       if (typeof picked === "string") onModelsDir(picked);
     } catch (e) {
       setError(String(e));
@@ -117,18 +121,27 @@ export function Onboarding({
           </span>
         )}
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="m-0 text-title-large text-on-surface">{current.title}</h2>
-          <p className="m-0 text-body-large text-on-surface-variant">{current.body}</p>
+          <h2 className="m-0 text-title-large text-on-surface">
+            {current.title}
+          </h2>
+          <p className="m-0 text-body-large text-on-surface-variant">
+            {current.body}
+          </p>
           {step === 0 && (
             <p className="m-0 mt-1 flex items-center gap-1">
               <Kbd>Alt</Kbd>+<Kbd>Space</Kbd>
             </p>
           )}
-          {step === MODELS_STEP && <ModelsFolder modelsDir={modelsDir} onModelsDir={onModelsDir} />}
+          {step === MODELS_STEP && (
+            <ModelsFolder modelsDir={modelsDir} onModelsDir={onModelsDir} />
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex flex-1 gap-1" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+        <div
+          className="flex flex-1 gap-1"
+          aria-label={`Step ${step + 1} of ${STEPS.length}`}
+        >
           {STEPS.map((item, index) => (
             <span
               key={item.title}
@@ -136,10 +149,20 @@ export function Onboarding({
             />
           ))}
         </div>
-        <Button aria-label="Skip" title="Skip" variant="text" size="lg" onClick={onDone}>
+        <Button
+          aria-label="Skip"
+          title="Skip"
+          variant="text"
+          size="lg"
+          onClick={onDone}
+        >
           <Icon name="skip_next" size={18} />
         </Button>
-        <Button variant="filled" size="lg" onClick={() => (last ? onDone() : setStep(step + 1))}>
+        <Button
+          variant="filled"
+          size="lg"
+          onClick={() => (last ? onDone() : setStep(step + 1))}
+        >
           {last ? "Start" : "Next"}
         </Button>
       </div>

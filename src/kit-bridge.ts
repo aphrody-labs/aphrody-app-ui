@@ -4,14 +4,15 @@
 // crates/ui/app/src/kits.rs. The kits own the logic and the catalog; this module only types the
 // events and keeps the state of one run. The protocol source is
 // packages/infra/product/src/shared/desktop.ts (a test checks both stay in step).
-import { Channel, invoke } from "@aphrody/api/core";
+import { Channel, invoke } from "@aphrody/tauri/api/core";
 import { isTauri } from "./tauri-bridge";
 
 export const KIT_PROTOCOL = "aphrody.kit/1";
 
 export type KitName = "omar" | "creator";
 
-export type KitFieldKind = "text" | "path" | "url" | "number" | "select" | "boolean";
+export type KitFieldKind =
+  "text" | "path" | "url" | "number" | "select" | "boolean";
 
 export interface KitField {
   name: string;
@@ -94,7 +95,11 @@ export async function startKit(
   // Channel exposes only the `onmessage` setter.
   // oxlint-disable-next-line unicorn/prefer-add-event-listener
   channel.onmessage = onEvent;
-  const session = await invoke<number>("aphrody_kit_start", { kit, args, channel });
+  const session = await invoke<number>("aphrody_kit_start", {
+    kit,
+    args,
+    channel,
+  });
   return {
     session,
     answer: (answer) => invoke<void>("aphrody_kit_answer", { session, answer }),
@@ -118,12 +123,17 @@ export function kitCatalog(kit: KitName, refresh = false): Promise<KitCatalog> {
     startKit(kit, ["catalog"], (event) => {
       if (event.type === "catalog" && !settled) {
         if (event.catalog.protocol !== KIT_PROTOCOL)
-          return fail(`Protocole du kit non pris en charge : ${event.catalog.protocol}`);
+          return fail(
+            `Protocole du kit non pris en charge : ${event.catalog.protocol}`,
+          );
         settled = true;
         resolve(event.catalog);
       } else if (event.type === "error") fail(event.message);
-      else if (event.type === "exit") fail("Le kit s’est arrêté sans catalogue.");
-    }).catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));
+      else if (event.type === "exit")
+        fail("Le kit s’est arrêté sans catalogue.");
+    }).catch((error: unknown) =>
+      fail(error instanceof Error ? error.message : String(error)),
+    );
   });
   catalogs.set(kit, pending);
   pending.catch(() => catalogs.delete(kit));
@@ -149,7 +159,12 @@ export interface RunState {
   code: number | null;
 }
 
-export const idleRun: RunState = { status: "idle", lines: [], question: null, code: null };
+export const idleRun: RunState = {
+  status: "idle",
+  lines: [],
+  question: null,
+  code: null,
+};
 
 /** Longest log kept on screen. */
 export const MAX_LINES = 2000;
@@ -157,10 +172,15 @@ export const MAX_LINES = 2000;
 /** Pure state of one run, folded over its events. */
 export function reduceRun(state: RunState, event: KitEvent): RunState {
   const push = (line: Omit<RunLine, "id">): RunLine[] =>
-    [...state.lines, { ...line, id: (state.lines.at(-1)?.id ?? 0) + 1 }].slice(-MAX_LINES);
+    [...state.lines, { ...line, id: (state.lines.at(-1)?.id ?? 0) + 1 }].slice(
+      -MAX_LINES,
+    );
   switch (event.type) {
     case "say":
-      return { ...state, lines: push({ text: event.text, stream: event.stream ?? "out" }) };
+      return {
+        ...state,
+        lines: push({ text: event.text, stream: event.stream ?? "out" }),
+      };
     case "ask":
       return { ...state, status: "asking", question: event };
     case "error":
@@ -197,8 +217,13 @@ export const typedOk = (expect: string | undefined, value: string): boolean =>
   expect === undefined || value.trim() === expect;
 
 /** Actions shown on this platform (Windows-only actions are hidden elsewhere). */
-export function visibleActions(catalog: KitCatalog, group: string): KitAction[] {
+export function visibleActions(
+  catalog: KitCatalog,
+  group: string,
+): KitAction[] {
   return catalog.actions.filter(
-    (action) => action.group === group && (!action.windowsOnly || catalog.platform === "win32"),
+    (action) =>
+      action.group === group &&
+      (!action.windowsOnly || catalog.platform === "win32"),
   );
 }

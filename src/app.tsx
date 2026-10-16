@@ -6,7 +6,7 @@
 import "m3:symbols.css";
 import { type ReactNode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { listen } from "@aphrody/api/event";
+import { listen } from "@aphrody/tauri/api/event";
 import { SpacedriveClient, HttpTransport } from "@aphrody/drive-client";
 import { PlatformProvider, type Platform } from "./contexts/PlatformContext";
 import { Shell } from "./Shell";
@@ -14,7 +14,13 @@ import { explorerRoutes } from "./router";
 import { DesktopPet, DesktopWidget, SplashScreen } from "./desktop-surfaces";
 import { PetGuide } from "./pet-guide-view";
 import { QuickBar } from "./quickbar";
-import { appReady, isTauri, pickDirectory, pickFile, tauriInvoke } from "./tauri-bridge";
+import {
+  appReady,
+  isTauri,
+  pickDirectory,
+  pickFile,
+  tauriInvoke,
+} from "./tauri-bridge";
 import { wantsHttpBackend, webOsTransport } from "./webos-backend";
 
 /**
@@ -34,7 +40,10 @@ const nativePlatform: Platform = {
   confirm(message: string, callback: (result: boolean) => void) {
     callback(window.confirm(message));
   },
-  async openDirectoryPickerDialog(opts?: { title?: string; multiple?: boolean }) {
+  async openDirectoryPickerDialog(opts?: {
+    title?: string;
+    multiple?: boolean;
+  }) {
     const res = await pickDirectory(opts?.title ?? "Sélectionner un dossier");
     return res;
   },
@@ -45,7 +54,9 @@ const nativePlatform: Platform = {
   async getDaemonStatus() {
     if (isTauri()) {
       try {
-        const res = await tauriInvoke<any>("plugin:aphrody-drive|get_daemon_status");
+        const res = await tauriInvoke<
+          Awaited<ReturnType<NonNullable<Platform["getDaemonStatus"]>>>
+        >("plugin:aphrody-drive|get_daemon_status");
         if (res) return res;
       } catch {
         // A failed native probe is unavailable, not a running Drive daemon.
@@ -62,8 +73,12 @@ const nativePlatform: Platform = {
   async getCurrentLibraryId() {
     if (isTauri()) {
       try {
-        return await tauriInvoke<string | null>("plugin:aphrody-drive|get_current_library_id");
-      } catch {}
+        return await tauriInvoke<string | null>(
+          "plugin:aphrody-drive|get_current_library_id",
+        );
+      } catch {
+        // The native host has no current library available.
+      }
     }
     return null;
   },
@@ -95,7 +110,9 @@ const client = isTauri()
       (event, handler) => listen(event, handler),
     )
   : new SpacedriveClient(
-      wantsHttpBackend(window.location.search) ? new HttpTransport() : webOsTransport(),
+      wantsHttpBackend(window.location.search)
+        ? new HttpTransport()
+        : webOsTransport(),
     );
 
 function App() {

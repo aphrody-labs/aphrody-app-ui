@@ -4,7 +4,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { listen } from "@aphrody/api/event";
+import { listen } from "@aphrody/tauri/api/event";
 import { clsx } from "clsx";
 import {
   Badge,
@@ -16,6 +16,27 @@ import {
   usePopover,
 } from "@aphrody/m3-primitives";
 import { Markdown, ToolCall, type ToolCallPair } from "@aphrody/m3-ai";
+
+type DictationRecognition = EventTarget & {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: SpeechRecognitionResultList;
+      }) => void)
+    | null;
+  start(): void;
+  stop(): void;
+};
+
+type DictationWindow = Window & {
+  SpeechRecognition?: new () => DictationRecognition;
+  webkitSpeechRecognition?: new () => DictationRecognition;
+};
 
 export interface ChatModelOption {
   id: string;
@@ -70,7 +91,11 @@ export function SparkleMark({ size = 24 }: { size?: number }) {
       <defs>
         <linearGradient id={id} x1="0" y1="1" x2="1" y2="0">
           {TITLE_GRADIENT_STOPS.map((stop, i) => (
-            <stop key={stop} offset={i / (TITLE_GRADIENT_STOPS.length - 1)} stopColor={stop} />
+            <stop
+              key={stop}
+              offset={i / (TITLE_GRADIENT_STOPS.length - 1)}
+              stopColor={stop}
+            />
           ))}
         </linearGradient>
       </defs>
@@ -112,7 +137,13 @@ export type FileChangeItem = {
 };
 
 export type Turn =
-  | { id: string; role: "user"; content: string; attachments?: string[]; turnId?: string }
+  | {
+      id: string;
+      role: "user";
+      content: string;
+      attachments?: string[];
+      turnId?: string;
+    }
   | {
       id: string;
       role: "assistant";
@@ -121,7 +152,13 @@ export type Turn =
       turnId?: string;
       itemId?: string;
     }
-  | { id: string; role: "tool"; pair: ToolCallPair; turnId?: string; itemId?: string }
+  | {
+      id: string;
+      role: "tool";
+      pair: ToolCallPair;
+      turnId?: string;
+      itemId?: string;
+    }
   | { id: string; role: "fileChange"; fileChange: FileChangeItem }
   | { id: string; role: "approval"; approval: ApprovalItem };
 
@@ -148,7 +185,9 @@ export function buildThreadForkPayload(
   return turnId ? { threadId, turnId } : { threadId };
 }
 
-export function buildThreadCompactPayload(threadId: string): { threadId: string } {
+export function buildThreadCompactPayload(threadId: string): {
+  threadId: string;
+} {
   return { threadId };
 }
 
@@ -368,7 +407,11 @@ export function ThreadDrawer({
                       <span>{formattedDate}</span>
                       {t.cwd && (
                         <span className="truncate max-w-36" title={t.cwd}>
-                          · {t.cwd.replace(/\\/g, "/").split("/").findLast(Boolean)}
+                          ·{" "}
+                          {t.cwd
+                            .replace(/\\/g, "/")
+                            .split("/")
+                            .findLast(Boolean)}
                         </span>
                       )}
                     </div>
@@ -432,7 +475,13 @@ export function ThreadDrawer({
   );
 }
 
-export function DiffViewer({ diff, filename }: { diff: string; filename?: string }) {
+export function DiffViewer({
+  diff,
+  filename,
+}: {
+  diff: string;
+  filename?: string;
+}) {
   const lines = diff.split("\n");
 
   return (
@@ -459,7 +508,10 @@ export function DiffViewer({ diff, filename }: { diff: string; filename?: string
           }
           return (
             // oxlint-disable-next-line react/no-array-index-key -- lignes de sortie append-only sans identité stable ni unicité garantie du contenu
-            <div key={idx} className={`px-2 py-0.5 whitespace-pre ${bgClass} ${lineClass}`}>
+            <div
+              key={idx}
+              className={`px-2 py-0.5 whitespace-pre ${bgClass} ${lineClass}`}
+            >
               {line}
             </div>
           );
@@ -512,7 +564,9 @@ export function FileChangeCard({
           >
             {kindLabel}
           </span>
-          <span className="font-mono text-body-medium text-on-surface truncate">{path}</span>
+          <span className="font-mono text-body-medium text-on-surface truncate">
+            {path}
+          </span>
         </div>
 
         {diff && (
@@ -543,7 +597,9 @@ export function ApprovalCard({
   onDecide,
 }: {
   approval: ApprovalItem;
-  onDecide: (decision: "accept" | "acceptForSession" | "decline" | "cancel") => void;
+  onDecide: (
+    decision: "accept" | "acceptForSession" | "decline" | "cancel",
+  ) => void;
 }) {
   const isPending = approval.status === "pending";
 
@@ -554,12 +610,16 @@ export function ApprovalCard({
     >
       <div className="flex items-center gap-2 mb-2">
         <Icon name="gavel" size={20} className="text-amber-500" />
-        <h3 className="m-0 text-title-small font-semibold text-on-surface">{approval.title}</h3>
+        <h3 className="m-0 text-title-small font-semibold text-on-surface">
+          {approval.title}
+        </h3>
         <span className="flex-1" />
         {!isPending && (
           <Badge
             variant={
-              approval.status === "approved" || approval.status === "session" ? "accent" : "error"
+              approval.status === "approved" || approval.status === "session"
+                ? "accent"
+                : "error"
             }
             size="sm"
           >
@@ -573,7 +633,9 @@ export function ApprovalCard({
       </div>
 
       {approval.reason && (
-        <p className="m-0 mb-2 text-body-medium text-on-surface-variant">{approval.reason}</p>
+        <p className="m-0 mb-2 text-body-medium text-on-surface-variant">
+          {approval.reason}
+        </p>
       )}
 
       {approval.network && (
@@ -731,10 +793,12 @@ export function CodexChat({
     if (turns.length === 0) return;
     const formatted = turns
       .map((t) => {
-        if (t.role === "tool") return `[TOOL] ${t.pair.name}\n${t.pair.resultRaw ?? ""}`;
+        if (t.role === "tool")
+          return `[TOOL] ${t.pair.name}\n${t.pair.resultRaw ?? ""}`;
         if (t.role === "fileChange")
           return `[FILE CHANGE] ${t.fileChange.path}\n${t.fileChange.diff}`;
-        if (t.role === "approval") return `[APPROVAL] ${t.approval.title} (${t.approval.status})`;
+        if (t.role === "approval")
+          return `[APPROVAL] ${t.approval.title} (${t.approval.status})`;
         return `[${t.role.toUpperCase()}]\n${t.content}`;
       })
       .join("\n\n");
@@ -764,7 +828,7 @@ export function CodexChat({
   };
 
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<DictationRecognition | null>(null);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
 
   interface SlashCommandItem {
@@ -782,14 +846,24 @@ export function CodexChat({
         icon: "track_changes",
         badge: "Agent",
       },
-      { command: "/plan", desc: "Préparer un plan avec l’agent", icon: "lightbulb", badge: "Plan" },
+      {
+        command: "/plan",
+        desc: "Préparer un plan avec l’agent",
+        icon: "lightbulb",
+        badge: "Plan",
+      },
       {
         command: "/rag",
         desc: "Recherche connaissances (RAG)",
         icon: "search_insights",
         badge: "RAG",
       },
-      { command: "/model", desc: "Changer de modèle actif", icon: "bolt", badge: "Modèles" },
+      {
+        command: "/model",
+        desc: "Changer de modèle actif",
+        icon: "bolt",
+        badge: "Modèles",
+      },
       {
         command: "/clear",
         desc: "Réinitialiser la conversation",
@@ -802,12 +876,16 @@ export function CodexChat({
 
   const showSlashMenu = useMemo(() => {
     const trimmed = draft.trim();
-    return trimmed.startsWith("/") && !trimmed.includes(" ") && trimmed.length <= 12;
+    return (
+      trimmed.startsWith("/") && !trimmed.includes(" ") && trimmed.length <= 12
+    );
   }, [draft]);
 
   const filteredSlashCommands = useMemo(() => {
     const q = draft.trim().toLowerCase();
-    return SLASH_COMMANDS.filter((c: SlashCommandItem) => c.command.toLowerCase().startsWith(q));
+    return SLASH_COMMANDS.filter((c: SlashCommandItem) =>
+      c.command.toLowerCase().startsWith(q),
+    );
   }, [draft, SLASH_COMMANDS]);
 
   const handleSelectSlashCommand = (cmd: string) => {
@@ -835,17 +913,22 @@ export function CodexChat({
 
   const handleDictation = () => {
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as DictationWindow).SpeechRecognition ||
+      (window as DictationWindow).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.info("Dictée indisponible : ce webview ne prend pas en charge SpeechRecognition");
+      toast.info(
+        "Dictée indisponible : ce webview ne prend pas en charge SpeechRecognition",
+      );
       return;
     }
 
     if (isListening) {
       try {
         recognitionRef.current?.stop();
-      } catch {}
+      } catch {
+        // Recognition may already have stopped after an error.
+      }
       setIsListening(false);
       toast.info("Dictée arrêtée");
       return;
@@ -862,13 +945,15 @@ export function CodexChat({
         toast.success("Dictée démarrée");
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event) => {
         let textResult = "";
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           textResult += event.results[i][0].transcript;
         }
         if (textResult) {
-          onDraftChange(draft ? `${draft.trim()} ${textResult.trim()}` : textResult.trim());
+          onDraftChange(
+            draft ? `${draft.trim()} ${textResult.trim()}` : textResult.trim(),
+          );
         }
       };
 
@@ -884,7 +969,9 @@ export function CodexChat({
       recognition.start();
     } catch {
       setIsListening(false);
-      toast.error("Micro inaccessible : autorisez le microphone pour l'application puis réessayez");
+      toast.error(
+        "Micro inaccessible : autorisez le microphone pour l'application puis réessayez",
+      );
     }
   };
 
@@ -990,7 +1077,9 @@ export function CodexChat({
             <div className="flex h-96 flex-col justify-end pb-8">
               <h2 className="app-greeting">
                 <SparkleMark size={32} />
-                <span className="app-greeting-text">Bonjour, par quoi commence-t-on ?</span>
+                <span className="app-greeting-text">
+                  Bonjour, par quoi commence-t-on ?
+                </span>
               </h2>
             </div>
           ) : (
@@ -1000,7 +1089,9 @@ export function CodexChat({
                   <div key={turn.id} className="w-full">
                     <ApprovalCard
                       approval={turn.approval}
-                      onDecide={(decision) => onApprovalDecision?.(turn.approval, decision)}
+                      onDecide={(decision) =>
+                        onApprovalDecision?.(turn.approval, decision)
+                      }
                     />
                   </div>
                 );
@@ -1029,7 +1120,10 @@ export function CodexChat({
               // User Message Turn : bulle compacte arrondie (radius 28px, surface-container-high, max 75%)
               if (turn.role === "user") {
                 return (
-                  <div key={turn.id} className="flex flex-col items-end w-full py-1">
+                  <div
+                    key={turn.id}
+                    className="flex flex-col items-end w-full py-1"
+                  >
                     <div className="max-w-[75%] rounded-[28px] bg-surface-container-high px-6 py-3.5 text-body-large text-on-surface break-words shadow-xs">
                       <div className="whitespace-pre-wrap">{turn.content}</div>
                     </div>
@@ -1037,7 +1131,8 @@ export function CodexChat({
                       <div className="flex flex-wrap gap-2 justify-end mt-2 max-w-[75%]">
                         {turn.attachments.map((filePath) => {
                           const filename =
-                            filePath.replace(/\\/g, "/").split("/").pop() || filePath;
+                            filePath.replace(/\\/g, "/").split("/").pop() ||
+                            filePath;
                           return (
                             <div
                               key={filePath}
@@ -1046,7 +1141,9 @@ export function CodexChat({
                               <span className="material-symbol text-title-small text-primary">
                                 description
                               </span>
-                              <span className="truncate max-w-xs">{filename}</span>
+                              <span className="truncate max-w-xs">
+                                {filename}
+                              </span>
                             </div>
                           );
                         })}
@@ -1058,7 +1155,10 @@ export function CodexChat({
 
               // Assistant Turn : texte brut à gauche, sans bulle, markdown propre, code Google Sans Code, actions au survol
               return (
-                <div key={turn.id} className="group flex flex-col py-2 w-full text-left">
+                <div
+                  key={turn.id}
+                  className="group flex flex-col py-2 w-full text-left"
+                >
                   <div className="flex w-full items-start gap-3">
                     <span className="mt-1">
                       <SparkleMark size={24} />
@@ -1080,7 +1180,9 @@ export function CodexChat({
                       icon="content_copy"
                       variant="standard"
                       size="sm"
-                      onClick={() => void copyChatText(turn.content, "Message copié")}
+                      onClick={() =>
+                        void copyChatText(turn.content, "Message copié")
+                      }
                       title="Copier le message"
                       aria-label="Copier le message"
                     />
@@ -1103,7 +1205,12 @@ export function CodexChat({
       </div>
 
       {/* Floating Composer en bas - centré, clamp(560px, 72%, 960px) */}
-      <div className={clsx("w-full px-4 shrink-0", promptShape === "docked" ? "pb-0" : "pb-6")}>
+      <div
+        className={clsx(
+          "w-full px-4 shrink-0",
+          promptShape === "docked" ? "pb-0" : "pb-6",
+        )}
+      >
         <div className="app-reading-column min-w-0 relative">
           {/* Menu d'autocomplétion des commandes IA instantanées */}
           {showSlashMenu && filteredSlashCommands.length > 0 && (
@@ -1112,7 +1219,7 @@ export function CodexChat({
                 Commandes IA instantanées
               </div>
               <div className="max-h-56 overflow-y-auto space-y-0.5">
-                {filteredSlashCommands.map((cmd: any, idx: number) => (
+                {filteredSlashCommands.map((cmd, idx) => (
                   <button
                     key={cmd.command}
                     type="button"
@@ -1128,7 +1235,9 @@ export function CodexChat({
                       <span className="material-symbol text-title-small text-primary">
                         {cmd.icon}
                       </span>
-                      <span className="font-mono text-label-large font-bold">{cmd.command}</span>
+                      <span className="font-mono text-label-large font-bold">
+                        {cmd.command}
+                      </span>
                       <span className="text-body-large text-on-surface-variant truncate max-w-[200px]">
                         {cmd.desc}
                       </span>
@@ -1151,21 +1260,26 @@ export function CodexChat({
                 if (showSlashMenu && filteredSlashCommands.length > 0) {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
-                    setSelectedSlashIndex((prev) => (prev + 1) % filteredSlashCommands.length);
+                    setSelectedSlashIndex(
+                      (prev) => (prev + 1) % filteredSlashCommands.length,
+                    );
                     return;
                   }
                   if (e.key === "ArrowUp") {
                     e.preventDefault();
                     setSelectedSlashIndex(
                       (prev) =>
-                        (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length,
+                        (prev - 1 + filteredSlashCommands.length) %
+                        filteredSlashCommands.length,
                     );
                     return;
                   }
                   if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
                     e.preventDefault();
                     if (filteredSlashCommands[selectedSlashIndex]) {
-                      handleSelectSlashCommand(filteredSlashCommands[selectedSlashIndex].command);
+                      handleSelectSlashCommand(
+                        filteredSlashCommands[selectedSlashIndex].command,
+                      );
                     }
                     return;
                   }
@@ -1176,7 +1290,12 @@ export function CodexChat({
                 }
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (ready && !busy && (draft.trim() || attachedFiles.length > 0)) onSend();
+                  if (
+                    ready &&
+                    !busy &&
+                    (draft.trim() || attachedFiles.length > 0)
+                  )
+                    onSend();
                 } else if (e.key === "Escape" && busy) {
                   e.preventDefault();
                   onStop();
@@ -1191,7 +1310,8 @@ export function CodexChat({
             {attachedFiles && attachedFiles.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mb-2 pt-1 border-t border-outline-variant/15">
                 {attachedFiles.map((filePath) => {
-                  const filename = filePath.replace(/\\/g, "/").split("/").pop() || filePath;
+                  const filename =
+                    filePath.replace(/\\/g, "/").split("/").pop() || filePath;
                   return (
                     <div
                       key={filePath}
@@ -1208,7 +1328,9 @@ export function CodexChat({
                         title="Retirer le fichier"
                         aria-label={`Retirer ${filename}`}
                       >
-                        <span className="material-symbol text-title-small">close</span>
+                        <span className="material-symbol text-title-small">
+                          close
+                        </span>
                       </button>
                     </div>
                   );
@@ -1221,7 +1343,10 @@ export function CodexChat({
               {/* Left Controls : + (menu Add & Tools), Badge Accès complet, Plug icon with dot */}
               <div className="flex items-center gap-2">
                 {/* Bouton + et Popover Menu */}
-                <Popover.Root open={plusPopover.open} onOpenChange={plusPopover.setOpen}>
+                <Popover.Root
+                  open={plusPopover.open}
+                  onOpenChange={plusPopover.setOpen}
+                >
                   <Popover.Trigger asChild>
                     <button
                       type="button"
@@ -1229,7 +1354,9 @@ export function CodexChat({
                       title="Ajouter ou outils"
                       aria-label="Ajouter ou outils"
                     >
-                      <span className="material-symbol text-title-medium">add</span>
+                      <span className="material-symbol text-title-medium">
+                        add
+                      </span>
                     </button>
                   </Popover.Trigger>
                   <Popover.Content
@@ -1313,14 +1440,20 @@ export function CodexChat({
                 </Popover.Root>
 
                 {/* Badge d'accès 'Accès complet' en rouge/orange */}
-                <Popover.Root open={accessPopover.open} onOpenChange={accessPopover.setOpen}>
+                <Popover.Root
+                  open={accessPopover.open}
+                  onOpenChange={accessPopover.setOpen}
+                >
                   <Popover.Trigger asChild>
                     <button
                       type="button"
                       className="app-chip flex items-center gap-1.5 px-3 py-1.5 text-label-large font-medium text-on-tertiary-container bg-tertiary-container hover:bg-tertiary-container/80 transition-colors cursor-pointer"
                       title={`Niveau d'accès : ${accessMode === "full" ? "accès complet" : accessMode === "ask" ? "demander avant modifications" : "lecture seule"}`}
                     >
-                      <span className="material-symbol text-title-small" aria-hidden="true">
+                      <span
+                        className="material-symbol text-title-small"
+                        aria-hidden="true"
+                      >
                         warning
                       </span>
                       <span className="app-chip-label">
@@ -1357,7 +1490,9 @@ export function CodexChat({
                       >
                         <span>Accès complet (Bypass)</span>
                         {accessMode === "full" && (
-                          <span className="material-symbol text-title-small">check</span>
+                          <span className="material-symbol text-title-small">
+                            check
+                          </span>
                         )}
                       </button>
                       <button
@@ -1376,7 +1511,9 @@ export function CodexChat({
                       >
                         <span>Demander avant modif</span>
                         {accessMode === "ask" && (
-                          <span className="material-symbol text-title-small">check</span>
+                          <span className="material-symbol text-title-small">
+                            check
+                          </span>
                         )}
                       </button>
                       <button
@@ -1395,7 +1532,9 @@ export function CodexChat({
                       >
                         <span>Lecture seule</span>
                         {accessMode === "readonly" && (
-                          <span className="material-symbol text-title-small">check</span>
+                          <span className="material-symbol text-title-small">
+                            check
+                          </span>
                         )}
                       </button>
                     </div>
@@ -1410,7 +1549,9 @@ export function CodexChat({
                   title="Extensions et outils"
                   aria-label="Extensions et outils"
                 >
-                  <span className="material-symbol text-title-medium">anchor</span>
+                  <span className="material-symbol text-title-medium">
+                    anchor
+                  </span>
                   <span className="absolute top-2 right-2 size-2 rounded-full bg-amber-400 ring-2 ring-surface-container-high" />
                 </button>
               </div>
@@ -1418,7 +1559,10 @@ export function CodexChat({
               {/* Right Controls : Sélecteur de modèle ('⚡ GPT-6 Luna Minimal ˅'), Micro, Bouton envoi/stop */}
               <div className="flex items-center gap-2">
                 {/* Sélecteur de modèle Popover pixel-perfect */}
-                <Popover.Root open={modelPopover.open} onOpenChange={modelPopover.setOpen}>
+                <Popover.Root
+                  open={modelPopover.open}
+                  onOpenChange={modelPopover.setOpen}
+                >
                   <Popover.Trigger asChild>
                     <button
                       type="button"
@@ -1486,7 +1630,9 @@ export function CodexChat({
                             )}
                           >
                             <span className="min-w-0">
-                              <span className="block truncate">{option.name}</span>
+                              <span className="block truncate">
+                                {option.name}
+                              </span>
                               <span className="block text-label-small text-on-surface-variant">
                                 {option.provider}
                               </span>
@@ -1508,7 +1654,15 @@ export function CodexChat({
                           Niveau d'effort
                         </div>
                         <div className="flex items-center gap-1">
-                          {(["None", "Low", "Medium", "High", "Minimal"] as const).map((lvl) => (
+                          {(
+                            [
+                              "None",
+                              "Low",
+                              "Medium",
+                              "High",
+                              "Minimal",
+                            ] as const
+                          ).map((lvl) => (
                             <button
                               key={lvl}
                               type="button"
@@ -1542,19 +1696,30 @@ export function CodexChat({
                       ? "bg-error text-on-error animate-pulse shadow-md"
                       : "hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface",
                   )}
-                  title={isListening ? "Arrêter la dictée vocale (en cours...)" : "Dictée vocale"}
+                  title={
+                    isListening
+                      ? "Arrêter la dictée vocale (en cours...)"
+                      : "Dictée vocale"
+                  }
                   aria-label={
-                    isListening ? "Arrêter la dictée vocale (en cours...)" : "Dictée vocale"
+                    isListening
+                      ? "Arrêter la dictée vocale (en cours...)"
+                      : "Dictée vocale"
                   }
                 >
-                  <span className="material-symbol text-title-medium font-bold">mic</span>
+                  <span className="material-symbol text-title-medium font-bold">
+                    mic
+                  </span>
                 </button>
 
                 {/* Bouton rond d'envoi primary devenant Stop pendant l'exécution */}
                 <button
                   type="button"
                   onClick={busy ? onStop : onSend}
-                  disabled={!busy && (!ready || (!draft.trim() && attachedFiles.length === 0))}
+                  disabled={
+                    !busy &&
+                    (!ready || (!draft.trim() && attachedFiles.length === 0))
+                  }
                   className={clsx(
                     "size-11 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer",
                     busy
@@ -1567,7 +1732,9 @@ export function CodexChat({
                   aria-label={busy ? "Arrêter la génération" : "Envoyer"}
                 >
                   {busy ? (
-                    <span className="material-symbol text-title-medium font-bold">stop</span>
+                    <span className="material-symbol text-title-medium font-bold">
+                      stop
+                    </span>
                   ) : (
                     <span className="material-symbol text-title-medium font-bold">
                       arrow_upward
@@ -1611,7 +1778,10 @@ type RouteIntent = {
 };
 
 /** Intention entrante (state de navigation ou query string) : prompt initial, dossier et fichiers de contexte. */
-function readRouteIntent(location: { search: string; state: unknown }): RouteIntent {
+function readRouteIntent(location: {
+  search: string;
+  state: unknown;
+}): RouteIntent {
   const state = location.state as {
     initialPrompt?: string;
     prompt?: string;
@@ -1629,7 +1799,11 @@ function readRouteIntent(location: { search: string; state: unknown }): RouteInt
     queryPrompt ||
     (queryFile ? `À propos du fichier ${queryFile} :\n` : undefined);
 
-  return { prompt: incomingPrompt, cwd: state?.cwd, contextFiles: state?.contextFiles };
+  return {
+    prompt: incomingPrompt,
+    cwd: state?.cwd,
+    contextFiles: state?.contextFiles,
+  };
 }
 
 /** Ref mise à jour après chaque rendu (layout effect) : effets et callbacks lisent la dernière valeur sans dépendance. */
@@ -1684,7 +1858,9 @@ export function CodexChatRoute() {
 
   // Handle incoming routing query or state
   // Brouillon et pièces jointes dérivés de la navigation entrante, appliqués pendant le rendu (ajustement d'état).
-  const [consumedLocation, setConsumedLocation] = useState<typeof location | null>(null);
+  const [consumedLocation, setConsumedLocation] = useState<
+    typeof location | null
+  >(null);
   if (location !== consumedLocation) {
     setConsumedLocation(location);
     const intent = readRouteIntent(location);
@@ -1693,7 +1869,9 @@ export function CodexChatRoute() {
     }
     if (intent.contextFiles && intent.contextFiles.length > 0) {
       const contextFiles = intent.contextFiles;
-      setAttachedFiles((prev) => Array.from(new Set([...prev, ...contextFiles])));
+      setAttachedFiles((prev) =>
+        Array.from(new Set([...prev, ...contextFiles])),
+      );
     }
   }
 
@@ -1719,7 +1897,8 @@ export function CodexChatRoute() {
     if (!rawList) throw new Error("Historique indisponible.");
     const loaded: ThreadSummary[] = rawList.map((value: unknown) => {
       const t = value as ThreadSummary;
-      if (typeof t.id !== "string" || !t.id) throw new Error("Historique invalide.");
+      if (typeof t.id !== "string" || !t.id)
+        throw new Error("Historique invalide.");
       return {
         id: t.id,
         name: t.name,
@@ -1738,7 +1917,10 @@ export function CodexChatRoute() {
       // Ensure resumed
       await chatRpc("thread/resume", { threadId: id });
 
-      const res = (await chatRpc("thread/read", { threadId: id, includeTurns: true })) as {
+      const res = (await chatRpc("thread/read", {
+        threadId: id,
+        includeTurns: true,
+      })) as {
         thread?: {
           id: string;
           name?: string;
@@ -1771,20 +1953,28 @@ export function CodexChatRoute() {
       if (res.thread?.model) setModel(res.thread.model);
       const activeSummary = threads.find((t) => t.id === id);
       setSessionTitle(
-        res.thread?.name || res.thread?.preview || activeSummary?.name || activeSummary?.preview,
+        res.thread?.name ||
+          res.thread?.preview ||
+          activeSummary?.name ||
+          activeSummary?.preview,
       );
 
       const reconstructed: Turn[] = [];
       for (const t of res.thread?.turns ?? []) {
         for (const item of t.items ?? []) {
-          if (item.type === "userMessage" || (item.type === "userInput" && item.text)) {
+          if (
+            item.type === "userMessage" ||
+            (item.type === "userInput" && item.text)
+          ) {
             reconstructed.push({
               id: item.id || `msg-${Date.now()}`,
               role: "user",
               content:
                 item.text ??
                 item.content
-                  ?.flatMap((part) => (typeof part.text === "string" ? [part.text] : []))
+                  ?.flatMap((part) =>
+                    typeof part.text === "string" ? [part.text] : [],
+                  )
                   .join("\n") ??
                 "",
               turnId: t.id,
@@ -1847,7 +2037,8 @@ export function CodexChatRoute() {
 
   // Sidebar selections use the same owner-backed history load as route actions.
   useEffect(() => {
-    if (!ready || !activeThreadId || activeThreadId === threadIdRef.current) return;
+    if (!ready || !activeThreadId || activeThreadId === threadIdRef.current)
+      return;
     if (busy) {
       setActiveThreadId(threadIdRef.current);
       toast.info("Arrêtez l’exécution avant de changer de chat.");
@@ -1862,7 +2053,9 @@ export function CodexChatRoute() {
       clearNewSessionRequest();
       if (busy) {
         setActiveThreadId(threadIdRef.current);
-        const summary = threads.find((thread) => thread.id === threadIdRef.current);
+        const summary = threads.find(
+          (thread) => thread.id === threadIdRef.current,
+        );
         setSessionTitle(summary?.name || summary?.preview);
         toast.info("Arrêtez l’exécution avant de créer un nouveau chat.");
         return;
@@ -1903,10 +2096,18 @@ export function CodexChatRoute() {
       try {
         await ensureAphrodyInitialized();
         const listed = await chatRpc("model/list");
-        if (!Array.isArray(listed.data)) throw new Error("Catalogue de modèles indisponible.");
-        const data = listed.data as Array<{ id: string; provider: string; default?: boolean }>;
+        if (!Array.isArray(listed.data))
+          throw new Error("Catalogue de modèles indisponible.");
+        const data = listed.data as Array<{
+          id: string;
+          provider: string;
+          default?: boolean;
+        }>;
         const options = data.map((entry) => {
-          if (typeof entry.id !== "string" || typeof entry.provider !== "string")
+          if (
+            typeof entry.id !== "string" ||
+            typeof entry.provider !== "string"
+          )
             throw new Error("Catalogue de modèles invalide.");
           return { id: entry.id, name: entry.id, provider: entry.provider };
         });
@@ -1924,7 +2125,8 @@ export function CodexChatRoute() {
           /* A browser host can use the backend's configured directory. */
         }
         await snap.loadThreads();
-        if (active && snap.activeThreadId) await snap.switchThread(snap.activeThreadId);
+        if (active && snap.activeThreadId)
+          await snap.switchThread(snap.activeThreadId);
         if (active) setReady(true);
       } catch (error) {
         if (active) setConnectionError(chatErrorMessage(error));
@@ -1941,10 +2143,17 @@ export function CodexChatRoute() {
     decision: "accept" | "acceptForSession" | "decline" | "cancel",
   ) => {
     const newStatus =
-      decision === "accept" ? "approved" : decision === "acceptForSession" ? "session" : "denied";
+      decision === "accept"
+        ? "approved"
+        : decision === "acceptForSession"
+          ? "session"
+          : "denied";
 
     const replyKey = `${approval.backendGeneration ?? ""}:${approval.id}`;
-    if (approvalReplies.current.has(replyKey) || confirmedApprovalReplies.current.has(replyKey))
+    if (
+      approvalReplies.current.has(replyKey) ||
+      confirmedApprovalReplies.current.has(replyKey)
+    )
       return;
     approvalReplies.current.add(replyKey);
     const updateApproval = (patch: Partial<ApprovalItem>) =>
@@ -2026,7 +2235,9 @@ export function CodexChatRoute() {
       const newName = params?.name;
       if (tId && newName) {
         setThreads(
-          threads.map((it) => (it.id === tId ? { ...it, name: newName, preview: newName } : it)),
+          threads.map((it) =>
+            it.id === tId ? { ...it, name: newName, preview: newName } : it,
+          ),
         );
         if (tId === threadIdRef.current) {
           setSessionTitle(newName);
@@ -2055,7 +2266,9 @@ export function CodexChatRoute() {
     // Inline Server Requests (Approvals)
     if (notification.method === "item/commandExecution/requestApproval") {
       if (notification.id === undefined) {
-        console.warn("Command execution approval has no request ID; cannot safely reply");
+        console.warn(
+          "Command execution approval has no request ID; cannot safely reply",
+        );
         return;
       }
       // Command execution belongs to the separate native shell app, not this consumer webview.
@@ -2063,7 +2276,9 @@ export function CodexChatRoute() {
         id: notification.id,
         result: { decision: "decline" },
         backendGeneration: notification.backendGeneration,
-      }).catch((error) => console.warn("Command execution was declined by the UI host", error));
+      }).catch((error) =>
+        console.warn("Command execution was declined by the UI host", error),
+      );
       return;
     }
 
@@ -2097,7 +2312,8 @@ export function CodexChatRoute() {
           ? items
           : [...items, { id: `approval-${reqId}`, role: "approval", approval }],
       );
-      if (accessMode === "full") void handleApprovalDecision(approval, "accept");
+      if (accessMode === "full")
+        void handleApprovalDecision(approval, "accept");
       return;
     }
 
@@ -2120,13 +2336,20 @@ export function CodexChatRoute() {
               turnId?: string;
               itemId?: string;
             };
-            updated[foundIdx] = { ...prev, content: prev.content + delta, streaming: true };
+            updated[foundIdx] = {
+              ...prev,
+              content: prev.content + delta,
+              streaming: true,
+            };
             return updated;
           }
         }
         const last = items.at(-1);
         if (last && last.role === "assistant" && last.streaming) {
-          return [...items.slice(0, -1), { ...last, content: last.content + delta }];
+          return [
+            ...items.slice(0, -1),
+            { ...last, content: last.content + delta },
+          ];
         }
         return [
           ...items,
@@ -2140,14 +2363,18 @@ export function CodexChatRoute() {
           },
         ];
       });
-    } else if (notification.method === "item/completed" && params?.item?.type === "agentMessage") {
+    } else if (
+      notification.method === "item/completed" &&
+      params?.item?.type === "agentMessage"
+    ) {
       const targetItemId = params.item.id;
       const text = params.item.text ?? "";
       setTurns((items) => {
         if (targetItemId) {
           const foundIdx = items.findIndex(
             (it) =>
-              it.role === "assistant" && (it.itemId === targetItemId || it.id === targetItemId),
+              it.role === "assistant" &&
+              (it.itemId === targetItemId || it.id === targetItemId),
           );
           if (foundIdx !== -1) {
             const updated = [...items];
@@ -2163,7 +2390,9 @@ export function CodexChatRoute() {
           }
         }
         return [
-          ...items.filter((item) => !(item.role === "assistant" && item.streaming)),
+          ...items.filter(
+            (item) => !(item.role === "assistant" && item.streaming),
+          ),
           {
             id: targetItemId ?? `msg-${Date.now()}`,
             role: "assistant",
@@ -2174,7 +2403,10 @@ export function CodexChatRoute() {
           },
         ];
       });
-    } else if (notification.method === "item/started" && params?.item?.type === "mcpToolCall") {
+    } else if (
+      notification.method === "item/started" &&
+      params?.item?.type === "mcpToolCall"
+    ) {
       const toolName = params.item.toolName ?? "tool";
       const callId = params.item.id ?? `tool-${Date.now()}`;
       const pair: ToolCallPair = {
@@ -2189,13 +2421,23 @@ export function CodexChatRoute() {
       };
       setTurns((items) => [
         ...items,
-        { id: callId, role: "tool", pair, itemId: callId, turnId: params.turnId },
+        {
+          id: callId,
+          role: "tool",
+          pair,
+          itemId: callId,
+          turnId: params.turnId,
+        },
       ]);
-    } else if (notification.method === "item/completed" && params?.item?.type === "mcpToolCall") {
+    } else if (
+      notification.method === "item/completed" &&
+      params?.item?.type === "mcpToolCall"
+    ) {
       const callId = params.item.id;
       const toolName = params.item.toolName ?? "tool";
       const result = params.item.result;
-      const resultText = params.item.text ?? (result ? JSON.stringify(result, null, 2) : "");
+      const resultText =
+        params.item.text ?? (result ? JSON.stringify(result, null, 2) : "");
       setTurns((items) =>
         items.map((item) => {
           if (
@@ -2252,7 +2494,8 @@ export function CodexChatRoute() {
         params?.turn?.status === "completed" &&
         params.turn.items?.some((item) => item.type === "contextCompaction")
       ) {
-        if (activeThreadId) compactedAtTurns.current.set(activeThreadId, turns.length);
+        if (activeThreadId)
+          compactedAtTurns.current.set(activeThreadId, turns.length);
         toast.success("Compactage du fil terminé");
       }
       void loadThreads().catch((error) => toast.error(chatErrorMessage(error)));
@@ -2267,9 +2510,9 @@ export function CodexChatRoute() {
           compactedAtTurns.current.get(activeThreadId),
         )
       ) {
-        void chatRpc("thread/compact/start", { threadId: activeThreadId }).catch((err) =>
-          console.warn("Auto-compact context skipped:", err),
-        );
+        void chatRpc("thread/compact/start", {
+          threadId: activeThreadId,
+        }).catch((err) => console.warn("Auto-compact context skipped:", err));
       }
     }
   };
@@ -2312,10 +2555,13 @@ export function CodexChatRoute() {
     let unlisten: (() => void) | undefined;
     let cancelled = false;
 
-    const nativeListen = window.__TAURI__?.event?.listen ?? (isTauri() ? listen : undefined);
+    const nativeListen =
+      window.__TAURI__?.event?.listen ?? (isTauri() ? listen : undefined);
     if (nativeListen) {
-      void nativeListen("aphrody://notification", ({ payload }: { payload: unknown }) =>
-        notificationHandler.current(payload),
+      void nativeListen(
+        "aphrody://notification",
+        ({ payload }: { payload: unknown }) =>
+          notificationHandler.current(payload),
       )
         .then((stop) => {
           if (cancelled) stop();
@@ -2338,7 +2584,13 @@ export function CodexChatRoute() {
 
   const handleSend = async () => {
     const text = draft.trim();
-    if ((!text && attachedFiles.length === 0) || busy || loadingThread || !ready || connectionError)
+    if (
+      (!text && attachedFiles.length === 0) ||
+      busy ||
+      loadingThread ||
+      !ready ||
+      connectionError
+    )
       return;
 
     // Instant local commands with zero latency
@@ -2373,7 +2625,10 @@ export function CodexChatRoute() {
         toast.info("Indiquez les termes à rechercher : /rag <requête>");
         return;
       }
-      setTurns((items) => [...items, { id: `user-${Date.now()}`, role: "user", content: text }]);
+      setTurns((items) => [
+        ...items,
+        { id: `user-${Date.now()}`, role: "user", content: text },
+      ]);
       setDraft("");
       try {
         const ragRes = await runRagSearch(query, 5);
@@ -2393,7 +2648,11 @@ export function CodexChatRoute() {
         }
         setTurns((items) => [
           ...items,
-          { id: `rag-${Date.now()}`, role: "assistant", content: responseContent },
+          {
+            id: `rag-${Date.now()}`,
+            role: "assistant",
+            content: responseContent,
+          },
         ]);
       } catch (err) {
         setTurns((items) => [
@@ -2425,8 +2684,11 @@ export function CodexChatRoute() {
         };
         if (model.trim()) params.model = model.trim();
         if (cwd.trim()) params.cwd = cwd.trim();
-        const created = (await chatRpc("thread/start", params)) as { thread: { id: string } };
-        if (!created.thread?.id) throw new Error("Le serveur n’a pas créé de chat.");
+        const created = (await chatRpc("thread/start", params)) as {
+          thread: { id: string };
+        };
+        if (!created.thread?.id)
+          throw new Error("Le serveur n’a pas créé de chat.");
         currentId = created.thread.id;
         setActiveThreadId(currentId);
         threadIdRef.current = currentId;
@@ -2437,7 +2699,8 @@ export function CodexChatRoute() {
         threadId: currentId,
         input: inputItems,
       })) as { turn: { id: string } };
-      if (!started.turn?.id) throw new Error("Le serveur n’a pas confirmé l’envoi du message.");
+      if (!started.turn?.id)
+        throw new Error("Le serveur n’a pas confirmé l’envoi du message.");
       const belongsToTurn = (item: Turn) =>
         (item.role === "fileChange"
           ? item.fileChange.turnId
@@ -2458,7 +2721,8 @@ export function CodexChatRoute() {
       setDraft("");
       setAttachedFiles([]);
       setTurnId(started.turn.id);
-      if (stopRequested.current) await requestInterrupt(currentId, started.turn.id);
+      if (stopRequested.current)
+        await requestInterrupt(currentId, started.turn.id);
     } catch (e) {
       stopRequested.current = false;
       setBusy(false);
@@ -2468,8 +2732,12 @@ export function CodexChatRoute() {
 
   const requestInterrupt = async (threadId: string, activeTurnId: string) => {
     try {
-      const result = await chatRpc("turn/interrupt", { threadId, turnId: activeTurnId });
-      if (result.status !== "interrupt_requested") throw new Error("L’arrêt n’a pas été confirmé.");
+      const result = await chatRpc("turn/interrupt", {
+        threadId,
+        turnId: activeTurnId,
+      });
+      if (result.status !== "interrupt_requested")
+        throw new Error("L’arrêt n’a pas été confirmé.");
     } catch (error) {
       stopRequested.current = false;
       toast.error(`Arrêt impossible : ${chatErrorMessage(error)}`);
@@ -2479,7 +2747,8 @@ export function CodexChatRoute() {
   const handleStop = () => {
     if (!busy || stopRequested.current) return;
     stopRequested.current = true;
-    if (threadIdRef.current && turnId) void requestInterrupt(threadIdRef.current, turnId);
+    if (threadIdRef.current && turnId)
+      void requestInterrupt(threadIdRef.current, turnId);
   };
 
   const handleNewSession = () => {
@@ -2507,7 +2776,8 @@ export function CodexChatRoute() {
         thread?: { id: string; name?: string; preview?: string };
       };
       const forkedId = res.thread?.id;
-      if (!forkedId || forkedId === id) throw new Error("Le serveur n’a pas créé de nouveau chat.");
+      if (!forkedId || forkedId === id)
+        throw new Error("Le serveur n’a pas créé de nouveau chat.");
       await loadThreads();
       await switchThread(forkedId);
       toast.success("Fil bifurqué");
@@ -2551,7 +2821,9 @@ export function CodexChatRoute() {
         </div>
       )}
       {loadingThread && (
-        <output className="block px-4 py-2 text-on-surface-variant">Chargement du chat…</output>
+        <output className="block px-4 py-2 text-on-surface-variant">
+          Chargement du chat…
+        </output>
       )}
       <CodexChat
         turns={turns}
@@ -2561,8 +2833,12 @@ export function CodexChatRoute() {
         draft={draft}
         onDraftChange={setDraft}
         attachedFiles={attachedFiles}
-        onAddAttachment={(file) => setAttachedFiles((prev) => Array.from(new Set([...prev, file])))}
-        onRemoveAttachment={(file) => setAttachedFiles((prev) => prev.filter((f) => f !== file))}
+        onAddAttachment={(file) =>
+          setAttachedFiles((prev) => Array.from(new Set([...prev, file])))
+        }
+        onRemoveAttachment={(file) =>
+          setAttachedFiles((prev) => prev.filter((f) => f !== file))
+        }
         onSend={() => void handleSend()}
         onStop={handleStop}
         onNewSession={handleNewSession}

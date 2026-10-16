@@ -7,9 +7,12 @@
  * camelCase keys below onto the snake_case Rust parameters.
  */
 
-import { invoke as tauriInvoke } from "@aphrody/api/core";
+import { invoke as tauriInvoke } from "@aphrody/tauri/api/core";
 
-export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+export type Invoke = <T>(
+  command: string,
+  args?: Record<string, unknown>,
+) => Promise<T>;
 
 export interface PetState {
   nom: string;
@@ -92,10 +95,26 @@ export function createIdentityBridge(invoke: Invoke = tauriInvoke) {
         saturation: options.saturation ?? null,
       }),
     paletteCss: (path: string, prefix: string, paletteSize?: number) =>
-      invoke<string>("aphrody_pixel_tokens_css", { chemin: path, prefixe: prefix, k: paletteSize ?? null }),
+      invoke<string>("aphrody_pixel_tokens_css", {
+        chemin: path,
+        prefixe: prefix,
+        k: paletteSize ?? null,
+      }),
     compare: (a: string, b: string, tolerance?: number) =>
-      invoke<Comparison>("aphrody_pixel_comparer", { a, b, tolerance: tolerance ?? null }),
-    vectorize: (path: string, options: { paletteSize?: number; tolerance?: number; mode?: MaskMode; threshold?: number } = {}) =>
+      invoke<Comparison>("aphrody_pixel_comparer", {
+        a,
+        b,
+        tolerance: tolerance ?? null,
+      }),
+    vectorize: (
+      path: string,
+      options: {
+        paletteSize?: number;
+        tolerance?: number;
+        mode?: MaskMode;
+        threshold?: number;
+      } = {},
+    ) =>
       invoke<string>("aphrody_pixel_vectoriser", {
         chemin: path,
         k: options.paletteSize ?? null,
@@ -104,7 +123,11 @@ export function createIdentityBridge(invoke: Invoke = tauriInvoke) {
         seuil: options.threshold ?? null,
       }),
     spriteSheet: (paths: string[], name: string, columns?: number) =>
-      invoke<SpriteSheet>("aphrody_pixel_planche", { chemins: paths, colonnes: columns ?? null, nom: name }),
+      invoke<SpriteSheet>("aphrody_pixel_planche", {
+        chemins: paths,
+        colonnes: columns ?? null,
+        nom: name,
+      }),
   };
 }
 

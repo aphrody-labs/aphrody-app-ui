@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Applies the open requests the OS hands to Aphrody (`aphrody://` links, "Open with"): the native
 // side queues them and emits `aphrody://open`; the main window drains the queue here.
-import { listen } from "@aphrody/api/event";
+import { listen } from "@aphrody/tauri/api/event";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { desktopRoutes } from "./desktop-navigation";
@@ -30,14 +30,23 @@ export const destinationRoutes: Record<LinkDestination, string> = {
 };
 
 /** Where one intent leads and the navigation state it carries. */
-export function routeOf(intent: OpenIntent): { to: string; state?: { initialPrompt: string } } {
+export function routeOf(intent: OpenIntent): {
+  to: string;
+  state?: { initialPrompt: string };
+} {
   switch (intent.kind) {
     case "navigate":
       return { to: destinationRoutes[intent.destination] };
     case "ask":
-      return { to: desktopRoutes.chat, state: { initialPrompt: intent.prompt } };
+      return {
+        to: desktopRoutes.chat,
+        state: { initialPrompt: intent.prompt },
+      };
     case "files":
-      return { to: desktopRoutes.chat, state: { initialPrompt: filesPrompt(intent.paths) } };
+      return {
+        to: desktopRoutes.chat,
+        state: { initialPrompt: filesPrompt(intent.paths) },
+      };
     case "thread":
       return { to: desktopRoutes.chat };
   }
@@ -49,7 +58,8 @@ export function useOpenRequests(): void {
     if (!isTauri()) return;
     let active = true;
     const drain = async () => {
-      const requests = (await tauriInvoke<OpenRequest[]>("aphrody_take_open_requests")) ?? [];
+      const requests =
+        (await tauriInvoke<OpenRequest[]>("aphrody_take_open_requests")) ?? [];
       // The last intent wins: one navigation per batch.
       const last = intentsOf(requests).at(-1);
       if (active && last) {
@@ -58,7 +68,10 @@ export function useOpenRequests(): void {
       }
     };
     void drain().catch(() => undefined);
-    const unlisten = listen(OPEN_EVENT, () => void drain().catch(() => undefined));
+    const unlisten = listen(
+      OPEN_EVENT,
+      () => void drain().catch(() => undefined),
+    );
     return () => {
       active = false;
       void unlisten.then((stop) => stop()).catch(() => undefined);

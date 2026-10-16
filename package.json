@@ -45,7 +45,7 @@
     "showcase:test:dom": "cd showcase && bun test --preload @aphrody/m3-config/test/dom ./test-dom"
   },
   "dependencies": {
-    "@aphrody/api": "workspace:*",
+    "@aphrody/tauri": "catalog:",
     "@aphrody/assets": "workspace:*",
     "@aphrody/bun-m3": "1.4.4",
     "@aphrody/bun-webview-page": "0.1.1-aphrody.2",
@@ -76,7 +76,6 @@
     "@aphrody/m3-theme": "workspace:*",
     "@aphrody/m3-tokens": "workspace:*",
     "@aphrody/material-design-icons": "workspace:*",
-    "@aphrody/plugin-dialog": "workspace:*",
     "@aphrody/qr": "workspace:*",
     "@aphrody/scaffold": "workspace:*",
     "@aphrody/web-source": "workspace:*",
@@ -105,7 +104,6 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
-    "@aphrody/m3": "workspace:*",
     "@aphrody/m3-config": "workspace:*",
     "@aphrody/product": "workspace:*",
     "@types/bun": "npm:@aphrody/bun-types@1.4.4",

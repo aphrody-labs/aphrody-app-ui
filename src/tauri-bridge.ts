@@ -5,7 +5,7 @@
  * desktop notifications, clipboard manager, and process lifecycle.
  */
 
-import { Channel } from "@aphrody/api/core";
+import { Channel } from "@aphrody/tauri/api/core";
 // oxlint-disable-next-line import/no-empty-named-blocks, unicorn/require-module-specifiers -- use the canonical global augmentation without a runtime import.
 import type {} from "../../../../crates/tauri/aphrody-tauri-api/src/global";
 import { browserSessionStream } from "./browser-session-stream";
@@ -41,14 +41,19 @@ export function isTauri(): boolean {
     typeof window !== "undefined" &&
     Boolean(
       window.__TAURI__?.core ||
-      (window as unknown as { __TAURI_INTERNALS__?: { invoke: unknown } }).__TAURI_INTERNALS__,
+      (window as unknown as { __TAURI_INTERNALS__?: { invoke: unknown } })
+        .__TAURI_INTERNALS__,
     )
   );
 }
 
 /** Plain browser without a remote daemon: the Rust WebAssembly backend answers (`?backend=http` opts out). */
 export function usesBrowserBackend(): boolean {
-  return !isTauri() && typeof window !== "undefined" && !wantsHttpBackend(window.location.search);
+  return (
+    !isTauri() &&
+    typeof window !== "undefined" &&
+    !wantsHttpBackend(window.location.search)
+  );
 }
 
 export async function tauriInvoke<T>(
@@ -61,7 +66,9 @@ export async function tauriInvoke<T>(
   }
   const internals = (
     window as unknown as {
-      __TAURI_INTERNALS__?: { invoke: <R>(c: string, a: Record<string, unknown>) => Promise<R> };
+      __TAURI_INTERNALS__?: {
+        invoke: <R>(c: string, a: Record<string, unknown>) => Promise<R>;
+      };
     }
   ).__TAURI_INTERNALS__;
   if (internals?.invoke) {
@@ -76,11 +83,17 @@ export interface LocalAiAnswer {
 
 /** Ask the local chat model served by the managed `llama-server` (`studio_native_chat`). */
 export async function askLocalAi(prompt: string): Promise<LocalAiAnswer> {
-  const result = await tauriInvoke<{ choices?: Array<{ message?: { content?: string } }> }>(
-    "studio_native_chat",
-    { messages: [{ role: "user", content: prompt }], temperature: null, maxTokens: null },
-  );
-  if (!result) throw new Error("L’assistant local est disponible dans l’application de bureau.");
+  const result = await tauriInvoke<{
+    choices?: Array<{ message?: { content?: string } }>;
+  }>("studio_native_chat", {
+    messages: [{ role: "user", content: prompt }],
+    temperature: null,
+    maxTokens: null,
+  });
+  if (!result)
+    throw new Error(
+      "L’assistant local est disponible dans l’application de bureau.",
+    );
   return { answer: result.choices?.[0]?.message?.content ?? "" };
 }
 
@@ -91,9 +104,12 @@ export async function askLocalAi(prompt: string): Promise<LocalAiAnswer> {
 export async function shellWindowAction(
   action: Record<string, unknown>,
 ): Promise<{ closed: boolean; state?: ShellWindowState } | null> {
-  return tauriInvoke<{ closed: boolean; state?: ShellWindowState }>("aphrody_shell_window", {
-    action,
-  });
+  return tauriInvoke<{ closed: boolean; state?: ShellWindowState }>(
+    "aphrody_shell_window",
+    {
+      action,
+    },
+  );
 }
 
 export async function shellMinimize() {
@@ -146,7 +162,7 @@ export async function pickDirectory(
 ): Promise<string | null> {
   if (isTauri()) {
     try {
-      const { open } = await import("@aphrody/plugin-dialog");
+      const { open } = await import("@aphrody/tauri/plugins/dialog");
       const result = await open({
         title,
         defaultPath,
@@ -169,7 +185,7 @@ export async function pickFile(
 ): Promise<string | null> {
   if (isTauri()) {
     try {
-      const { open } = await import("@aphrody/plugin-dialog");
+      const { open } = await import("@aphrody/tauri/plugins/dialog");
       const result = await open({
         title,
         defaultPath,
@@ -193,7 +209,7 @@ export async function saveFileDialog(options: {
 }): Promise<string | null> {
   if (isTauri()) {
     try {
-      const { save } = await import("@aphrody/plugin-dialog");
+      const { save } = await import("@aphrody/tauri/plugins/dialog");
       return await save(options);
     } catch {
       return tauriInvoke<string | null>("plugin:dialog|save", { options });
@@ -202,10 +218,13 @@ export async function saveFileDialog(options: {
   return null;
 }
 
-export async function confirmNative(message: string, title = "Confirmation"): Promise<boolean> {
+export async function confirmNative(
+  message: string,
+  title = "Confirmation",
+): Promise<boolean> {
   if (isTauri()) {
     try {
-      const { confirm } = await import("@aphrody/plugin-dialog");
+      const { confirm } = await import("@aphrody/tauri/plugins/dialog");
       return await confirm(message, { title, kind: "warning" });
     } catch {
       const res = await tauriInvoke<string>("plugin:dialog|message", {
@@ -230,7 +249,7 @@ export async function messageNative(
 ): Promise<void> {
   if (isTauri()) {
     try {
-      const { message: msg } = await import("@aphrody/plugin-dialog");
+      const { message: msg } = await import("@aphrody/tauri/plugins/dialog");
       await msg(message, { title, kind });
       return;
     } catch {
@@ -250,11 +269,16 @@ export async function messageNative(
 export async function getOsTelemetry(): Promise<OsInfo> {
   if (!isTauri()) {
     return {
-      platform: typeof navigator !== "undefined" ? navigator.platform || "web" : "web",
+      platform:
+        typeof navigator !== "undefined" ? navigator.platform || "web" : "web",
       version: "web",
       arch: "x86_64",
-      locale: typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US",
-      hostname: typeof location !== "undefined" ? location.hostname : "localhost",
+      locale:
+        typeof navigator !== "undefined"
+          ? navigator.language || "en-US"
+          : "en-US",
+      hostname:
+        typeof location !== "undefined" ? location.hostname : "localhost",
       osType: "WebBrowser",
     };
   }
@@ -278,11 +302,16 @@ export async function getOsTelemetry(): Promise<OsInfo> {
     return {
       platform:
         internals?.platform ||
-        (typeof navigator !== "undefined" ? navigator.platform || "unknown" : "unknown"),
+        (typeof navigator !== "undefined"
+          ? navigator.platform || "unknown"
+          : "unknown"),
       version: internals?.version || "unknown",
       arch: internals?.arch || "unknown",
       locale:
-        locale || (typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"),
+        locale ||
+        (typeof navigator !== "undefined"
+          ? navigator.language || "en-US"
+          : "en-US"),
       hostname: hostname || "localhost",
       osType: internals?.os_type || "unknown",
     };
@@ -305,9 +334,13 @@ export async function getOsTelemetry(): Promise<OsInfo> {
 export async function requestNotificationPermission(): Promise<boolean> {
   if (isTauri()) {
     try {
-      const granted = await tauriInvoke<boolean>("plugin:notification|is_permission_granted");
+      const granted = await tauriInvoke<boolean>(
+        "plugin:notification|is_permission_granted",
+      );
       if (granted) return true;
-      const state = await tauriInvoke<string>("plugin:notification|request_permission");
+      const state = await tauriInvoke<string>(
+        "plugin:notification|request_permission",
+      );
       return state === "granted";
     } catch {
       return false;
@@ -321,7 +354,10 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return false;
 }
 
-export async function sendDesktopNotification(title: string, body?: string): Promise<void> {
+export async function sendDesktopNotification(
+  title: string,
+  body?: string,
+): Promise<void> {
   if (isTauri()) {
     try {
       await tauriInvoke("plugin:notification|notify", {
@@ -332,7 +368,10 @@ export async function sendDesktopNotification(title: string, body?: string): Pro
       // fallback
     }
   }
-  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+  if (
+    typeof Notification !== "undefined" &&
+    Notification.permission === "granted"
+  ) {
     try {
       void new Notification(title, { body });
     } catch {
@@ -383,7 +422,9 @@ export async function copyToNativeClipboard(text: string): Promise<boolean> {
 export async function readNativeClipboard(): Promise<string> {
   if (isTauri()) {
     try {
-      const text = await tauriInvoke<string>("plugin:clipboard-manager|read_text");
+      const text = await tauriInvoke<string>(
+        "plugin:clipboard-manager|read_text",
+      );
       return text ?? "";
     } catch {
       // fallback
@@ -500,8 +541,14 @@ export interface PullProgress {
 export const MODEL_PULL_EVENT = "aphrody://model-pull";
 
 /** Invoke a desktop command; outside Tauri there is no backend, which is an error, not an empty result. */
-async function desktopInvoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
-  if (!isTauri()) throw new Error("Aphrody desktop backend unavailable (not running inside Tauri)");
+async function desktopInvoke<T>(
+  command: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  if (!isTauri())
+    throw new Error(
+      "Aphrody desktop backend unavailable (not running inside Tauri)",
+    );
   return (await tauriInvoke<T>(command, args)) as T;
 }
 
@@ -509,7 +556,10 @@ export function getHardwareTelemetry(): Promise<HardwareTelemetry> {
   return desktopInvoke<HardwareTelemetry>("aphrody_hardware_telemetry");
 }
 
-export function fetchModelCatalog(): Promise<{ count: number; entries: CatalogEntry[] }> {
+export function fetchModelCatalog(): Promise<{
+  count: number;
+  entries: CatalogEntry[];
+}> {
   return desktopInvoke("aphrody_model_catalog");
 }
 
@@ -595,7 +645,10 @@ export async function installAppUpdate(
     if (message.event === "Progress") received += message.data.chunkLength;
     onProgress?.(received, total);
   };
-  await desktopInvoke("plugin:updater|download_and_install", { rid: update.rid, onEvent });
+  await desktopInvoke("plugin:updater|download_and_install", {
+    rid: update.rid,
+    onEvent,
+  });
   await restartApp();
 }
 
@@ -612,7 +665,10 @@ export function ensureAphrodyInitialized(): Promise<void> {
       });
     } catch (error) {
       // A different webview may already have initialized the shared broker.
-      if (!(error instanceof Error) || error.message !== "invalid request: Already initialized")
+      if (
+        !(error instanceof Error) ||
+        error.message !== "invalid request: Already initialized"
+      )
         throw error;
     }
     await aphrodyRpc("initialized");
@@ -628,14 +684,22 @@ export function resetAphrodyInitializationForTesting(): void {
   initialization = undefined;
 }
 
-function rpcResult(body: unknown, notification: boolean): Record<string, unknown> {
+function rpcResult(
+  body: unknown,
+  notification: boolean,
+): Record<string, unknown> {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new Error("Réponse du service invalide.");
   }
   const response = body as { result?: unknown; error?: { message?: string } };
-  if (response.error) throw new Error(response.error.message ?? "Échec du service.");
+  if (response.error)
+    throw new Error(response.error.message ?? "Échec du service.");
   if (notification) return {};
-  if (!response.result || typeof response.result !== "object" || Array.isArray(response.result)) {
+  if (
+    !response.result ||
+    typeof response.result !== "object" ||
+    Array.isArray(response.result)
+  ) {
     throw new Error("Réponse du service incomplète.");
   }
   return response.result as Record<string, unknown>;
@@ -646,12 +710,14 @@ export async function aphrodyRpc(
   params: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   const request =
-    method === "initialized" ? { method, params } : { id: ++bridgeRequestId, method, params };
+    method === "initialized"
+      ? { method, params }
+      : { id: ++bridgeRequestId, method, params };
   if (isTauri()) {
-    const response = await tauriInvoke<{ result?: unknown; error?: { message?: string } }>(
-      "aphrody_rpc",
-      { request },
-    );
+    const response = await tauriInvoke<{
+      result?: unknown;
+      error?: { message?: string };
+    }>("aphrody_rpc", { request });
     return rpcResult(response, method === "initialized");
   }
   const response = await fetch("/rpc", {
@@ -682,7 +748,8 @@ export async function aphrodyReply(response: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(response),
   });
-  if (!acknowledged.ok) throw new Error(`Server returned HTTP ${acknowledged.status}`);
+  if (!acknowledged.ok)
+    throw new Error(`Server returned HTTP ${acknowledged.status}`);
   rpcResult(await acknowledged.json(), true);
 }
 
@@ -710,7 +777,9 @@ export async function aphrodySessionStream(
         }).catch(() => {});
       };
     } catch (err) {
-      throw new Error("Impossible de connecter le flux de conversation.", { cause: err });
+      throw new Error("Impossible de connecter le flux de conversation.", {
+        cause: err,
+      });
     }
   }
   throw new Error("Le flux de conversation est indisponible.");
@@ -737,7 +806,9 @@ export type DesktopIntegrationAction =
 export function desktopIntegration(
   action: DesktopIntegrationAction,
 ): Promise<DesktopIntegrationState | null> {
-  return tauriInvoke<DesktopIntegrationState>("aphrody_desktop_integration", { action });
+  return tauriInvoke<DesktopIntegrationState>("aphrody_desktop_integration", {
+    action,
+  });
 }
 
 /** Open an http(s) or mailto URL with the system handler (tauri-plugin-opener). */
@@ -799,7 +870,10 @@ export interface RagSearchResponse {
   rawText?: string;
 }
 
-export async function runRagSearch(query: string, limit = 5): Promise<RagSearchResponse> {
+export async function runRagSearch(
+  query: string,
+  limit = 5,
+): Promise<RagSearchResponse> {
   if (usesBrowserBackend()) {
     const hits = await webOsRagSearch(query, limit);
     return {
@@ -812,7 +886,10 @@ export async function runRagSearch(query: string, limit = 5): Promise<RagSearchR
       })),
     };
   }
-  const response = await aphrodyRpc("aphrody/rag/search", { query, topK: limit });
+  const response = await aphrodyRpc("aphrody/rag/search", {
+    query,
+    topK: limit,
+  });
   const results = Array.isArray(response.results) ? response.results : [];
   return {
     results: results.map((value) => {
@@ -835,7 +912,10 @@ export async function getRagStats(): Promise<RagStats> {
   if (usesBrowserBackend()) return webOsRagStats();
   await ensureAphrodyInitialized();
   const status = await aphrodyRpc("aphrody/rag/status");
-  if (typeof status.indexedDocuments !== "number" || typeof status.totalChunks !== "number") {
+  if (
+    typeof status.indexedDocuments !== "number" ||
+    typeof status.totalChunks !== "number"
+  ) {
     throw new Error("Les statistiques documentaires sont indisponibles.");
   }
   return { documents: status.indexedDocuments, chunks: status.totalChunks };
